@@ -3,18 +3,23 @@ name: Build Windows EXE
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:  # 允许手动触发
+  workflow_dispatch:
+
+env:
+  # 强制使用 Node.js 24，解决弃用警告
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build:
-    runs-on: windows-latest  # Windows环境打包exe
+    # 使用 windows-2022 避免 windows-latest 重定向问题
+    runs-on: windows-2022
 
     steps:
       # 1. 检出代码
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2. 设置 Python 环境
+      # 2. 设置 Python 3.11
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -23,16 +28,33 @@ jobs:
       # 3. 安装依赖
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt
+          pip install pandas numpy openpyxl xlrd pyinstaller
 
-      # 4. 用 PyInstaller 打包（单文件 + ico图标 + 无控制台窗口）
+      # 4. 用 PyInstaller 打包（关键：包含所有隐藏依赖）
       - name: Build EXE with PyInstaller
         run: |
-          pyinstaller --onefile --windowed --icon=tables_merge.ico --name tables_merge tables_merge.py
+          pyinstaller `
+            --onefile `
+            --windowed `
+            --name "tables_merge" `
+            --icon="tables_merge.ico" `
+            --add-data "tables_merge.ico;." `
+            --hidden-import "pandas" `
+            --hidden-import "numpy" `
+            --hidden-import "openpyxl" `
+            --hidden-import "openpyxl.cell._writer" `
+            --hidden-import "xlrd" `
+            --hidden-import "tkinter" `
+            --collect-all "openpyxl" `
+            --collect-all "xlrd" `
+            --collect-data "pandas" `
+            --collect-data "numpy" `
+            tables_merge.py
 
-      # 5. 上传打包好的exe作为Artifacts（可下载）
+      # 5. 上传打包好的exe
       - name: Upload EXE artifact
         uses: actions/upload-artifact@v4
         with:
           name: tables_merge_exe
           path: dist/tables_merge.exe
+          if-no-files-found: error
