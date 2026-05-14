@@ -1,0 +1,38 @@
+name: Build Windows EXE
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  build:
+    runs-on: windows-latest  # Windows环境打包exe
+
+    steps:
+      # 1. 检出代码
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. 设置 Python 环境
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # 3. 安装依赖
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      # 4. 用 PyInstaller 打包（单文件 + ico图标 + 无控制台窗口）
+      - name: Build EXE with PyInstaller
+        run: |
+          pyinstaller --onefile --windowed --icon=tables_merge.ico --name tables_merge tables_merge.py
+
+      # 5. 上传打包好的exe作为Artifacts（可下载）
+      - name: Upload EXE artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tables_merge_exe
+          path: dist/tables_merge.exe
